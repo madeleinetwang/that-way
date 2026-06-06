@@ -1,4 +1,5 @@
 -- Enable PostGIS for geospatial support
+-- TODO: This is current draft... may switch later 
 CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- ============================================================

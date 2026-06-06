@@ -216,4 +216,4 @@ node_modules/
 .DS_Store
 
 # Sample data (too large for git — see README setup instructions to download)
-database/sample_data/
+database/geolife_sample_data_raw/

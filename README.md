@@ -2,6 +2,10 @@
 
 A personalized navigation web app that learns your driving habits over time.
 
+## Problem Statement
+
+Whenever I am going to some place new, I oftentimes find myself being taken down "popular" or "most-optimal" routes by navigation apps. As a local in my own neighborhood, my personal instinct about optimal routes is more comfortable to my driving habits but I still rely on a map application to tell me how to get somewhere new. This application is meant to solve that by predicting the best route for you based on _your_ driving habits rather than the "most optimized" route.
+
 ## How it works
 
 Navigation apps give everyone the same route. This one learns yours.
@@ -32,15 +36,21 @@ route and flag any you liked or disliked. This is the only explicit input the sy
 ```
 that-way/
 ├── backend/
-│   ├── api/          # HTTP handlers (FastAPI or similar)
-│   ├── models/       # Pydantic models mirroring DB tables
-│   ├── pipeline/     # Route generation, behavior learning, segment scoring
-│   └── utils/        # Supabase client, shared helpers
+│   ├── api/                  # HTTP handlers (FastAPI or similar)
+│   ├── models/               # Pydantic models mirroring DB tables
+│   ├── pipeline/
+│   │   ├── ingest/
+│   │   │   └── geolife.py    # Bronze: .plt files → bronze_geolife_traces
+│   │   ├── transform/
+│   │   │   ├── silver_geolife.py  # Silver: clean + segment trips
+│   │   │   └── gold_training.py   # Gold: enrich → model-ready dataset
+│   │   └── run.py            # Orchestrator (--layer bronze/silver/gold)
+│   └── utils/                # Supabase client, shared helpers
 ├── database/
-│   ├── migrations/   # SQL migration files (run in order)
-│   ├── seeds/        # Development seed data
-│   └── sample_data/  # GeoLife-derived training data
-├── notebooks/        # Analysis and experiments
+│   ├── migrations/           # SQL migration files (run in order)
+│   ├── seeds/                # Development seed data
+│   └── geolife_sample_data_raw/          # GeoLife raw data (gitignored — see setup)
+├── notebooks/                # Analysis and experiments
 ├── mobile/           # iOS app (Expo / SwiftUI — TBD)
 ├── scripts/          # One-off admin / migration scripts
 ├── docs/             # Architecture notes, ADRs
@@ -154,6 +164,7 @@ cp .env.template .env
 
 ```bash
 psql "$SUPABASE_DB_URL" -f database/migrations/001_initial_schema.sql
+psql "$SUPABASE_DB_URL" -f database/migrations/002_medallion_layers.sql
 ```
 
 For development seed data:
@@ -198,9 +209,21 @@ Training on this data allows the model to learn general navigation behavior patt
 
 ## Development roadmap
 
-- [ ] GPS trace ingestion + map-matching
-- [ ] Known place detection (cluster arrival points into labeled places)
-- [ ] Behavior profile extraction from frequented routes
+### Phase 1 — Data pipeline (current focus)
+
+- [ ] Bronze ingestion: parse GeoLife `.plt` files → `bronze_geolife_traces`
+- [ ] Silver transform: clean, type, segment into trips → `silver_geolife_trips` / `silver_geolife_traces`
+- [ ] Gold transform: enrich with trip context → `gold_training_trajectories`
+
+### Phase 2 — Model
+
+- [ ] EDA in `notebooks/route_preference_hypothesis.ipynb`
+- [ ] Feature engineering: known place inference, behavioral features per trip
+- [ ] Train behavior prediction model on gold dataset
+- [ ] Evaluate: does the model generalize across users?
+
+### Phase 3 — Application (later)
+
 - [ ] Route generation pipeline (OSRM / Valhalla + preference weights)
 - [ ] Post-trip feedback API endpoint
 - [ ] Segment preference scoring algorithm
