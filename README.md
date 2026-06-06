@@ -1,6 +1,6 @@
 # that-way
 
-A personalized navigation iOS app that learns your driving habits over time.
+A personalized navigation web app that learns your driving habits over time.
 
 ## How it works
 
@@ -38,7 +38,9 @@ that-way/
 │   └── utils/        # Supabase client, shared helpers
 ├── database/
 │   ├── migrations/   # SQL migration files (run in order)
-│   └── seeds/        # Development seed data
+│   ├── seeds/        # Development seed data
+│   └── sample_data/  # GeoLife-derived training data
+├── notebooks/        # Analysis and experiments
 ├── mobile/           # iOS app (Expo / SwiftUI — TBD)
 ├── scripts/          # One-off admin / migration scripts
 ├── docs/             # Architecture notes, ADRs
@@ -160,13 +162,37 @@ For development seed data:
 psql "$SUPABASE_DB_URL" -f database/seeds/001_dev_seed.sql
 ```
 
-### 4. Install Python dependencies
+### 4. Download sample training data
+
+`database/sample_data/` is excluded from git. Download the GeoLife GPS Trajectories dataset (v1.3) from [Microsoft](https://www.microsoft.com/en-us/download/details.aspx?id=52367), extract the zip, and place the user folders under `database/sample_data/`.
+
+### 5. Install Python dependencies
 
 ```bash
 cd backend
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
+
+---
+
+## Notebooks
+
+- [`notebooks/route_preference_hypothesis.ipynb`](notebooks/route_preference_hypothesis.ipynb) — explores the GeoLife GPS dataset and validates the hypothesis that user navigation preferences can be learned from repeated trajectory patterns.
+
+---
+
+## Model training data
+
+The behavior prediction model is trained on the data in `database/sample_data/`, derived from the [GeoLife GPS Trajectories](https://www.microsoft.com/en-us/download/details.aspx?id=52367) dataset (Microsoft Research Asia, v1.3). GeoLife contains 17,621 GPS trajectories from 182 users collected over five years, covering a wide range of real-world outdoor movements.
+
+Training on this data allows the model to learn general navigation behavior patterns before personalizing to individual users.
+
+**Required citations for GeoLife data:**
+
+- Yu Zheng et al. _Mining interesting locations and travel sequences from GPS trajectories._ WWW 2009.
+- Yu Zheng et al. _Understanding Mobility Based on GPS Data._ UbiComp 2008.
+- Yu Zheng et al. _GeoLife: A Collaborative Social Networking Service among User, Location and Trajectory._ IEEE Data Engineering Bulletin, 33(2), 2010.
 
 ---
 

@@ -214,3 +214,6 @@ node_modules/
 
 # macOS
 .DS_Store
+
+# Sample data (too large for git — see README setup instructions to download)
+database/sample_data/
