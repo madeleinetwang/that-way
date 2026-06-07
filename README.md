@@ -185,6 +185,14 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+### 6. Run scripts to ingest data to Supabase
+
+``` 
+../.venv/bin/python3 run.py --layer bronze
+../.venv/bin/python3 run.py --layer silver
+../.venv/bin/python3 run.py --layer gold
+```
+
 ---
 
 ## Notebooks
