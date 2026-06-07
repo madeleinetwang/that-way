@@ -215,5 +215,6 @@ node_modules/
 # macOS
 .DS_Store
 
-# Sample data (too large for git — see README setup instructions to download)
+# Sample data and local pipeline artifacts (too large for git)
 database/geolife_sample_data_raw/
+database/bronze/

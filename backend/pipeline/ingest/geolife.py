@@ -2,11 +2,9 @@ import os
 from pathlib import Path
 
 import pandas as pd
-from supabase import create_client
-
-client = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "database/geolife_sample_data_raw"
+BRONZE_DIR = Path(__file__).resolve().parents[3] / "database/bronze"
 
 
 def parse_plt_file(file_path: Path) -> pd.DataFrame:
@@ -32,11 +30,22 @@ def parse_labels(labels_path: Path) -> pd.DataFrame:
     return df
 
 
-def get_transport_mode(timestamp: pd.Timestamp, labels_df: pd.DataFrame):
-    if labels_df is None:
-        return None
-    match = labels_df[(labels_df["start_time"] <= timestamp) & (labels_df["end_time"] >= timestamp)]
-    return match["mode"].values[0] if len(match) else None
+def assign_transport_modes(recorded_at: pd.Series, labels_df: pd.DataFrame) -> pd.Series:
+    traces = pd.DataFrame({"recorded_at": recorded_at}).sort_values("recorded_at")
+    labels = labels_df.sort_values("start_time")
+
+    merged = pd.merge_asof(
+        traces,
+        labels,
+        left_on="recorded_at",
+        right_on="start_time",
+        direction="backward",
+    )
+    merged["mode"] = merged.apply(
+        lambda row: row["mode"] if pd.notna(row["end_time"]) and row["recorded_at"] <= row["end_time"] else None,
+        axis=1,
+    )
+    return merged["mode"].values
 
 
 def ingest_user(user_dir: Path) -> pd.DataFrame:
@@ -51,7 +60,7 @@ def ingest_user(user_dir: Path) -> pd.DataFrame:
         df["geolife_user_id"] = user_dir.name
         if labels_df is not None:
             recorded_at = pd.to_datetime(df["date_str"] + " " + df["time_str"])
-            df["transport_mode"] = recorded_at.apply(lambda ts: get_transport_mode(ts, labels_df))
+            df["transport_mode"] = assign_transport_modes(recorded_at, labels_df)
         else:
             df["transport_mode"] = None
         frames.append(df)
@@ -59,20 +68,20 @@ def ingest_user(user_dir: Path) -> pd.DataFrame:
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
 
 
-def run(data_dir: Path = DATA_DIR) -> None:
+def run(data_dir: Path = DATA_DIR, bronze_dir: Path = BRONZE_DIR) -> None:
+    bronze_dir.mkdir(parents=True, exist_ok=True)
     user_dirs = sorted(d for d in data_dir.iterdir() if d.is_dir())
-    all_frames = []
 
     for user_dir in user_dirs:
+        out_path = bronze_dir / f"{user_dir.name}.parquet"
+        if out_path.exists():
+            print(f"{user_dir.name}: already ingested, skipping")
+            continue
         df = ingest_user(user_dir)
-        all_frames.append(df)
-        print(f"{user_dir.name}: {len(df)} rows")
+        df.to_parquet(out_path, index=False)
+        print(f"{user_dir.name}: {len(df)} rows → {out_path.name}")
 
-    result = pd.concat(all_frames, ignore_index=True)
-    print(f"total: {len(result)} rows")
-
-    records = result.to_dict(orient="records")
-    client.table("bronze_geolife_traces").insert(records).execute()
+    print("bronze ingestion complete")
 
 
 if __name__ == "__main__":

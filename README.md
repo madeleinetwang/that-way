@@ -1,6 +1,6 @@
 # that-way
 
-A personalized navigation web app that learns your driving habits over time.
+A personalized navigation web app with custom end-to-end statistical model that learns your driving habits over time.
 
 ## Problem Statement
 
@@ -175,7 +175,7 @@ psql "$SUPABASE_DB_URL" -f database/seeds/001_dev_seed.sql
 
 ### 4. Download sample training data
 
-`database/sample_data/` is excluded from git. Download the GeoLife GPS Trajectories dataset (v1.3) from [Microsoft](https://www.microsoft.com/en-us/download/details.aspx?id=52367), extract the zip, and place the user folders under `database/sample_data/`.
+`database/geolife_sample_data_raw/` is excluded from git. Download the GeoLife GPS Trajectories dataset (v1.3) from [Microsoft](https://www.microsoft.com/en-us/download/details.aspx?id=52367), extract the zip, and place the user folders (000–181) directly under `database/geolife_sample_data_raw/`.
 
 ### 5. Install Python dependencies
 
@@ -185,13 +185,24 @@ python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 6. Run scripts to ingest data to Supabase
+### 6. Run the pipeline
 
-``` 
+The pipeline follows a medallion architecture. Bronze runs locally and writes Parquet files to `database/bronze/` — no database connection needed. Silver and gold clean and enrich the data before loading to Supabase.
+
+```bash
+cd backend/pipeline
+
+# parse raw .plt files → local Parquet (database/bronze/)
 ../.venv/bin/python3 run.py --layer bronze
+
+# clean + segment trips → Supabase silver tables
 ../.venv/bin/python3 run.py --layer silver
+
+# enrich → Supabase gold table (model-ready)
 ../.venv/bin/python3 run.py --layer gold
 ```
+
+Each layer is idempotent — safe to re-run.
 
 ---
 
@@ -203,7 +214,7 @@ pip install -r requirements.txt
 
 ## Model training data
 
-The behavior prediction model is trained on the data in `database/sample_data/`, derived from the [GeoLife GPS Trajectories](https://www.microsoft.com/en-us/download/details.aspx?id=52367) dataset (Microsoft Research Asia, v1.3). GeoLife contains 17,621 GPS trajectories from 182 users collected over five years, covering a wide range of real-world outdoor movements.
+The behavior prediction model is trained on the data in `database/geolife_sample_data_raw/`, derived from the [GeoLife GPS Trajectories](https://www.microsoft.com/en-us/download/details.aspx?id=52367) dataset (Microsoft Research Asia, v1.3). GeoLife contains 17,621 GPS trajectories from 182 users collected over five years, covering a wide range of real-world outdoor movements.
 
 Training on this data allows the model to learn general navigation behavior patterns before personalizing to individual users.
 
