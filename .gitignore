@@ -136,6 +136,7 @@ celerybeat.pid
 
 # Environments
 .env
+.env.local
 .envrc
 .venv
 env/
@@ -213,3 +214,6 @@ node_modules/
 
 # macOS
 .DS_Store
+
+# Sample data (too large for git — see README setup instructions to download)
+database/geolife_sample_data_raw/

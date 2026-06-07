@@ -1,6 +1,10 @@
 # that-way
 
-A personalized navigation iOS app that learns your driving habits over time.
+A personalized navigation web app that learns your driving habits over time.
+
+## Problem Statement
+
+Whenever I am going to some place new, I oftentimes find myself being taken down "popular" or "most-optimal" routes by navigation apps. As a local in my own neighborhood, my personal instinct about optimal routes is more comfortable to my driving habits but I still rely on a map application to tell me how to get somewhere new. This application is meant to solve that by predicting the best route for you based on _your_ driving habits rather than the "most optimized" route.
 
 ## How it works
 
@@ -32,13 +36,21 @@ route and flag any you liked or disliked. This is the only explicit input the sy
 ```
 that-way/
 ├── backend/
-│   ├── api/          # HTTP handlers (FastAPI or similar)
-│   ├── models/       # Pydantic models mirroring DB tables
-│   ├── pipeline/     # Route generation, behavior learning, segment scoring
-│   └── utils/        # Supabase client, shared helpers
+│   ├── api/                  # HTTP handlers (FastAPI or similar)
+│   ├── models/               # Pydantic models mirroring DB tables
+│   ├── pipeline/
+│   │   ├── ingest/
+│   │   │   └── geolife.py    # Bronze: .plt files → bronze_geolife_traces
+│   │   ├── transform/
+│   │   │   ├── silver_geolife.py  # Silver: clean + segment trips
+│   │   │   └── gold_training.py   # Gold: enrich → model-ready dataset
+│   │   └── run.py            # Orchestrator (--layer bronze/silver/gold)
+│   └── utils/                # Supabase client, shared helpers
 ├── database/
-│   ├── migrations/   # SQL migration files (run in order)
-│   └── seeds/        # Development seed data
+│   ├── migrations/           # SQL migration files (run in order)
+│   ├── seeds/                # Development seed data
+│   └── geolife_sample_data_raw/          # GeoLife raw data (gitignored — see setup)
+├── notebooks/                # Analysis and experiments
 ├── mobile/           # iOS app (Expo / SwiftUI — TBD)
 ├── scripts/          # One-off admin / migration scripts
 ├── docs/             # Architecture notes, ADRs
@@ -152,6 +164,7 @@ cp .env.template .env
 
 ```bash
 psql "$SUPABASE_DB_URL" -f database/migrations/001_initial_schema.sql
+psql "$SUPABASE_DB_URL" -f database/migrations/002_medallion_layers.sql
 ```
 
 For development seed data:
@@ -160,7 +173,11 @@ For development seed data:
 psql "$SUPABASE_DB_URL" -f database/seeds/001_dev_seed.sql
 ```
 
-### 4. Install Python dependencies
+### 4. Download sample training data
+
+`database/sample_data/` is excluded from git. Download the GeoLife GPS Trajectories dataset (v1.3) from [Microsoft](https://www.microsoft.com/en-us/download/details.aspx?id=52367), extract the zip, and place the user folders under `database/sample_data/`.
+
+### 5. Install Python dependencies
 
 ```bash
 cd backend
@@ -170,11 +187,43 @@ pip install -r requirements.txt
 
 ---
 
+## Notebooks
+
+- [`notebooks/route_preference_hypothesis.ipynb`](notebooks/route_preference_hypothesis.ipynb) — explores the GeoLife GPS dataset and validates the hypothesis that user navigation preferences can be learned from repeated trajectory patterns.
+
+---
+
+## Model training data
+
+The behavior prediction model is trained on the data in `database/sample_data/`, derived from the [GeoLife GPS Trajectories](https://www.microsoft.com/en-us/download/details.aspx?id=52367) dataset (Microsoft Research Asia, v1.3). GeoLife contains 17,621 GPS trajectories from 182 users collected over five years, covering a wide range of real-world outdoor movements.
+
+Training on this data allows the model to learn general navigation behavior patterns before personalizing to individual users.
+
+**Required citations for GeoLife data:**
+
+- Yu Zheng et al. _Mining interesting locations and travel sequences from GPS trajectories._ WWW 2009.
+- Yu Zheng et al. _Understanding Mobility Based on GPS Data._ UbiComp 2008.
+- Yu Zheng et al. _GeoLife: A Collaborative Social Networking Service among User, Location and Trajectory._ IEEE Data Engineering Bulletin, 33(2), 2010.
+
+---
+
 ## Development roadmap
 
-- [ ] GPS trace ingestion + map-matching
-- [ ] Known place detection (cluster arrival points into labeled places)
-- [ ] Behavior profile extraction from frequented routes
+### Phase 1 — Data pipeline (current focus)
+
+- [ ] Bronze ingestion: parse GeoLife `.plt` files → `bronze_geolife_traces`
+- [ ] Silver transform: clean, type, segment into trips → `silver_geolife_trips` / `silver_geolife_traces`
+- [ ] Gold transform: enrich with trip context → `gold_training_trajectories`
+
+### Phase 2 — Model
+
+- [ ] EDA in `notebooks/route_preference_hypothesis.ipynb`
+- [ ] Feature engineering: known place inference, behavioral features per trip
+- [ ] Train behavior prediction model on gold dataset
+- [ ] Evaluate: does the model generalize across users?
+
+### Phase 3 — Application (later)
+
 - [ ] Route generation pipeline (OSRM / Valhalla + preference weights)
 - [ ] Post-trip feedback API endpoint
 - [ ] Segment preference scoring algorithm
