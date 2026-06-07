@@ -4,7 +4,7 @@ A personalized navigation web app that learns your driving habits over time.
 
 ## Problem Statement
 
-Whenever I am going to some place new, I oftentimes find myself being taken down "popular" or "most-optimal" routes by navigation apps. As a local in my own neighborhood, my personal instinct about optimal routes is more comfortable to my driving habits but I still rely on a map application to tell me how to get somewhere new. This application is meant to solve that by predicting the best route for you based on _your_ driving habits rather than the "most optimized" route.
+Whenever I am going to some place new, I oftentimes find myself being taken down "popular" or "most-optimal" routes by navigation apps. Although I know my local streets and what I prefer, I still rely on navigation apps to take me some place, however upon my arrival, I often think I could've taken a much easier route! This application is meant to solve that by predicting the best route for you based on _your_ driving habits rather than the "most optimized" route.
 
 ## How it works
 
