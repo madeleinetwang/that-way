@@ -5,7 +5,7 @@
 #   - silver_geolife_trips    (one row per .plt file / trip)
 #   - silver_geolife_traces   (cleaned GPS points linked to a trip)
 #
-# Transformations to apply:
+# Transformations to apply (transport_mode carried through from bronze where available):
 #   - parse timestamps from (date, time) string columns → TIMESTAMPTZ
 #   - convert altitude from feet → meters
 #   - derive speed_mps and heading_deg from consecutive points
