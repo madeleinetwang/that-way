@@ -4,9 +4,9 @@ from pathlib import Path
 import pandas as pd
 from supabase import create_client
 
-client = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_KEY"])
+client = create_client(os.environ["SUPABASE_URL"], os.environ["SUPABASE_ANON_KEY"])
 
-DATA_DIR = Path("../database/geolife_sample_data_raw")
+DATA_DIR = Path(__file__).resolve().parents[3] / "database/geolife_sample_data_raw"
 
 
 def parse_plt_file(file_path: Path) -> pd.DataFrame:
