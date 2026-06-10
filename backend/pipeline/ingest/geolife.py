@@ -14,7 +14,9 @@ def parse_plt_file(file_path: Path) -> pd.DataFrame:
         header=None,
         names=["latitude", "longitude", "unused", "altitude_feet", "days_since_1899", "date_str", "time_str"],
     )
-    return df.drop(columns=["unused", "days_since_1899"])
+    df = df.drop(columns=["unused", "days_since_1899"])
+    df["altitude_feet"] = df["altitude_feet"].astype(float)
+    return df
 
 
 def parse_labels(labels_path: Path) -> pd.DataFrame:
@@ -63,6 +65,7 @@ def ingest_user(user_dir: Path) -> pd.DataFrame:
             df["transport_mode"] = assign_transport_modes(recorded_at, labels_df)
         else:
             df["transport_mode"] = None
+        df["transport_mode"] = df["transport_mode"].astype("string")
         frames.append(df)
 
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()

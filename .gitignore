@@ -218,3 +218,4 @@ node_modules/
 # Sample data and local pipeline artifacts (too large for git)
 database/geolife_sample_data_raw/
 database/bronze/
+database/silver/
