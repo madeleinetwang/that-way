@@ -40,16 +40,19 @@ that-way/
 │   ├── models/               # Pydantic models mirroring DB tables
 │   ├── pipeline/
 │   │   ├── ingest/
-│   │   │   └── geolife.py    # Bronze: .plt files → bronze_geolife_traces
+│   │   │   └── geolife.py         # Bronze: parse .plt files → local Parquet
 │   │   ├── transform/
-│   │   │   ├── silver_geolife.py  # Silver: clean + segment trips
-│   │   │   └── gold_training.py   # Gold: enrich → model-ready dataset
-│   │   └── run.py            # Orchestrator (--layer bronze/silver/gold)
-│   └── utils/                # Supabase client, shared helpers
+│   │   │   ├── silver_geolife.py  # Silver: clean + segment trips + kinematics
+│   │   │   └── gold_training.py   # Gold: clean outliers + trip context → model-ready
+│   │   └── run.py                 # Orchestrator (--layer bronze/silver/gold)
+│   └── utils/                     # Supabase client, shared helpers
 ├── database/
-│   ├── migrations/           # SQL migration files (run in order)
-│   ├── seeds/                # Development seed data
-│   └── geolife_sample_data_raw/          # GeoLife raw data (gitignored — see setup)
+│   ├── migrations/                # SQL migration files (production app schema)
+│   ├── seeds/                     # Development seed data
+│   ├── geolife_sample_data_raw/   # GeoLife raw .plt files (gitignored — see setup)
+│   ├── bronze/                    # Local Parquet: raw parsed points (gitignored)
+│   ├── silver/                    # Local Parquet: cleaned traces + trips (gitignored)
+│   └── gold/                      # Local Parquet: model-ready trajectories (gitignored)
 ├── notebooks/                # Analysis and experiments
 ├── mobile/           # iOS app (Expo / SwiftUI — TBD)
 ├── scripts/          # One-off admin / migration scripts
@@ -160,11 +163,13 @@ cp .env.template .env
 2. Enable the **PostGIS** extension under Database → Extensions.
 3. Copy your project URL and API keys into `.env`.
 
-### 3. Run migrations
+### 3. Run migrations (optional for the data pipeline)
+
+The data pipeline runs entirely on local Parquet (see step 6), so Supabase is **not required** to build the training data. Run the migrations only when you're ready to work on the production app schema.
 
 ```bash
-psql "$SUPABASE_DB_URL" -f database/migrations/001_initial_schema.sql
-psql "$SUPABASE_DB_URL" -f database/migrations/002_medallion_layers.sql
+psql "$SUPABASE_DB_URL" -f database/migrations/001_initial_schema.sql   # production app tables
+psql "$SUPABASE_DB_URL" -f database/migrations/002_medallion_layers.sql # cloud medallion tables (reference schema)
 ```
 
 For development seed data:
@@ -187,22 +192,25 @@ pip install -r requirements.txt
 
 ### 6. Run the pipeline
 
-The pipeline follows a medallion architecture. Bronze runs locally and writes Parquet files to `database/bronze/` — no database connection needed. Silver and gold clean and enrich the data before loading to Supabase.
+The pipeline follows a medallion architecture. All three layers run **locally** and write Parquet files under `database/` — no database connection is required to build the training data.
 
 ```bash
 cd backend/pipeline
 
-# parse raw .plt files → local Parquet (database/bronze/)
+# parse raw .plt files → database/bronze/*.parquet (one file per user)
 ../.venv/bin/python3 run.py --layer bronze
 
-# clean + segment trips → Supabase silver tables
+# clean, segment into trips, derive kinematics → database/silver/{traces,trips}.parquet
 ../.venv/bin/python3 run.py --layer silver
 
-# enrich → Supabase gold table (model-ready)
+# clean speed outliers + join trip context → database/gold/training_trajectories.parquet
 ../.venv/bin/python3 run.py --layer gold
 ```
 
-Each layer is idempotent — safe to re-run.
+Each layer is idempotent — safe to re-run. Approximate runtimes on the full 182-user dataset: bronze ~170s, silver ~50s, gold ~25s.
+
+> **Why local Parquet instead of Supabase?**
+> The processed GeoLife data is point-level — ~24.2M GPS rows. That far exceeds the Supabase free-tier storage limit (~500 MB – 1 GB), which puts the project into read-only mode once full. Parquet is columnar and compressed, so the entire dataset reads back into pandas in a few seconds with no network round-trips. Supabase (and the `001`/`002` migrations) is reserved for the **production app schema** and, later, small summary tables (e.g. per-trip or per-user features) that comfortably fit the free tier. The medallion Parquet files are gitignored and rebuilt locally via the commands above.
 
 ---
 
@@ -230,9 +238,9 @@ Training on this data allows the model to learn general navigation behavior patt
 
 ### Phase 1 — Data pipeline (current focus)
 
-- [ ] Bronze ingestion: parse GeoLife `.plt` files → `bronze_geolife_traces`
-- [ ] Silver transform: clean, type, segment into trips → `silver_geolife_trips` / `silver_geolife_traces`
-- [ ] Gold transform: enrich with trip context → `gold_training_trajectories`
+- [x] Bronze ingestion: parse GeoLife `.plt` files → `database/bronze/*.parquet`
+- [x] Silver transform: clean, type, segment into trips, derive kinematics → `database/silver/{traces,trips}.parquet`
+- [x] Gold transform: clean speed outliers + join trip context → `database/gold/training_trajectories.parquet`
 
 ### Phase 2 — Model
 

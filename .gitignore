@@ -219,3 +219,4 @@ node_modules/
 database/geolife_sample_data_raw/
 database/bronze/
 database/silver/
+database/gold/

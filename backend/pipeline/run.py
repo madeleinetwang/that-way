@@ -3,6 +3,7 @@ import logging
 
 from ingest.geolife import run as run_bronze
 from transform.silver_geolife import run as run_silver
+from transform.gold_training import run as run_gold
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
 
@@ -24,9 +25,13 @@ def main(layer: str):
             logging.error(f"silver layer failed: {e}")
             raise
 
-    # gold to be wired once implemented
-    # if layer == "gold":
-    #     run_gold()
+    if layer == "gold":
+        try:
+            run_gold()
+            logging.info("gold layer transform complete")
+        except Exception as e:
+            logging.error(f"gold layer failed: {e}")
+            raise
 
 
 if __name__ == "__main__":
